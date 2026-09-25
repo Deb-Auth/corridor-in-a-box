@@ -310,15 +310,25 @@ CORRIDOR_SIGNER_SECRET=S...   # testnet only; enables SEP-10 auth
 pnpm exec vitest run tests/integration/sep31-live.test.ts
 ```
 
-The `nightly-live-anchor` workflow re-runs the same suite on a schedule once
-those values are configured as repo secrets, so the claim stays continuously
-verified rather than a one-off capture.
+The [`nightly-live-anchor`](./.github/workflows/nightly-live-anchor.yml) workflow
+already re-runs this same read-only probe every night against the SDF test
+anchor — it defaults `ANCHOR_HOME_DOMAIN` and friends to the public
+`testanchor.stellar.org` values above, so it doesn't wait on repo secrets to
+start probing. The one var that _is_ a real secret, `CORRIDOR_SIGNER_SECRET`,
+gates the SEP-10/SEP-12 legs: without it configured as a repo secret those legs
+skip (and the job says so via a `::warning::`) while the rest of the probe
+still runs.
 
 The full money-moving end-to-end capture (open → settle → reconcile against a
 testnet anchor) is a manual step — the procedure is in
-[docs/operations.md](./docs/operations.md). This is the one Phase-1 roadmap item
-still open: until that trail is captured here, treat the **settle leg** as
-verified against mocks only (the auth/quote/KYC legs above are live-verified).
+[docs/operations.md](./docs/operations.md). The **settle leg** itself is
+live-verified on testnet, not just against mocks — see [Proof against a real
+SEP-31 anchor](#proof-against-a-real-sep-31-anchor) above (ledger 4030910, 10
+USDC to the anchor's deposit address) and [Proof the settle leg is
+real](#proof-the-settle-leg-is-real) above (ledger 4024693). What's still
+unproven against a real counterparty is `reconcile → completed` — see [where it
+stops, precisely](#proof-against-a-real-sep-31-anchor) above — and that is the
+one Phase-1 roadmap item still open.
 
 ## License
 
