@@ -1,4 +1,4 @@
-﻿// Crash-resume integration test: kill after settled, resume to completed
+// Crash-resume integration test: kill after settled, resume to completed
 // against a real anchor.
 //
 // This test exercises the exact path most likely to be wrong in production:
@@ -21,7 +21,7 @@
 //   ANCHOR_ASSET_ISSUER=G... \
 //   ANCHOR_RECIPIENT_SEP12_ID=cust_... \
 //   CORRIDOR_SIGNER_SECRET=S...   # testnet only \
-//   CORRIDOR_HORIZON_URL=https://horizon-testnet.stellar.org \
+//   HORIZON_URL=https://horizon-testnet.stellar.org \
 //   CORRIDOR_TEST_DATABASE_URL=postgres://... \
 //   pnpm exec vitest run tests/integration/crash-resume.test.ts
 
@@ -46,7 +46,8 @@ const env = process.env;
 const transferServer = env.ANCHOR_SEP31_TRANSFER_SERVER;
 const homeDomain = env.ANCHOR_HOME_DOMAIN;
 const signerSecret = env.CORRIDOR_SIGNER_SECRET || "";
-const horizonUrl = env.CORRIDOR_HORIZON_URL || "https://horizon-testnet.stellar.org";
+const horizonUrl =
+  env.HORIZON_URL || env.CORRIDOR_HORIZON_URL || "https://horizon-testnet.stellar.org";
 const dbUrl = env.CORRIDOR_TEST_DATABASE_URL;
 
 const hasAnchor = Boolean(transferServer && homeDomain && signerSecret);
