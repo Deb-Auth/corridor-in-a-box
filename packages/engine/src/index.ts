@@ -28,8 +28,10 @@ export {
   comply,
   open,
   settle,
+  buildSettlementRequest,
   reconcile,
   reconcileUntil,
+  anchorTerminalStatus,
   backoffMs,
   recover,
   type RecoveryAction,
@@ -57,3 +59,10 @@ export {
   type Metrics,
   type MetricTags,
 } from "./observability";
+export {
+  CompositeGate,
+  type CheckResult,
+  type GateCheck,
+  type GateContext,
+  type PreSettleGate,
+} from "./gate";

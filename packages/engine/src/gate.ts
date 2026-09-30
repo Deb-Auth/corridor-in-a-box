@@ -19,7 +19,7 @@ export interface GateContext {
 }
 
 export interface CheckResult {
-  /** e.g. "sep31.info.asset" */
+  /** e.g. "chain.balance" or "sep31.info.asset" */
   readonly name: string;
   readonly passed: boolean;
   /** Required when !passed. */
