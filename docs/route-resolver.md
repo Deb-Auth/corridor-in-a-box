@@ -7,6 +7,96 @@ business. The repo ships two — `StaticRouteResolver` (trust the manifest) and
 operator can point a deployment at a third, private one without forking
 anything. This page documents that mechanism.
 
+## The RouteResolver interface
+
+Whether a resolver is built in or loaded through `loadResolver`, it must satisfy
+this interface. The interface is effectively public API: a private resolver is
+built against it without living in this repo, so what it promises is stated
+here.
+
+```ts
+interface RouteResolver {
+  resolve(intent: PaymentIntent, corridor: Corridor): Promise<RouteDecision>;
+}
+
+interface RouteDecision {
+  readonly receiving: AnchorAdapter;
+  readonly split?: ReadonlyArray<{ adapter: AnchorAdapter; weight: number }>;
+  readonly trust: "attested" | "manifest";
+}
+```
+
+### Call sites and call count
+
+The engine calls `resolve()` at two points, both in `packages/engine/src/run.ts`:
+
+1. **First run** of `execute()`, once, after the idempotency key is claimed and
+   before the quote.
+2. **Resume** of a run in state `settled` that still needs reconciliation
+   (`resumeRun`).
+
+A single payment can therefore see `resolve()` more than once. An
+implementation must not assume it is called once.
+
+### Idempotency
+
+For the same `intent` and `corridor`, `resolve()` should return the same
+`receiving` anchor on every call, as far as its inputs allow. A resume
+reconciles against whatever anchor the resolver returns at that moment. If a
+resolver's choice drifts between the first run and the resume, reconciliation
+can poll the wrong anchor. A resolver that depends on live data (health,
+attestation, rate limits) should document that dependency. Any state it keeps
+must tolerate a repeated call for the same payment.
+
+### Error semantics
+
+`resolve()` may throw, and it fails closed: it must never return a route it
+cannot vouch for. `RegistryRouteResolver` throws `UnattestedAnchorError` when
+an anchor is not attested, when its attestation is older than the staleness
+bound, or when the registry cannot be reached. An unreachable registry is
+"unknown", never "proceed".
+
+**Known gap.** The first-run call to `resolve()` is not wrapped in a `try`.
+The run has already been claimed in state `created` at that point, so an
+exception from `resolve()` propagates out of `execute()` and the run stays
+`created` instead of moving to `failed`. Callers must handle a rejected
+promise and must not treat `created` as terminal. This is tracked by the issue
+"execute() strands a run in `created` when RouteResolver.resolve() throws".
+When the engine turns the throw into a failed outcome, this section will say
+so.
+
+### Trust
+
+`trust` records how the route was reached. `"attested"` means the registry
+holds on-chain evidence for the anchor. `"manifest"` means the anchor is taken
+from the corridor manifest on trust. The engine refuses a `"manifest"` route on
+the public network unless the operator explicitly opts in with
+`trustManifestWithoutAttestation`, failing with `MANIFEST_INVALID`. A resolver
+must report `trust` honestly. Reporting `"attested"` for an unverified route
+defeats that check.
+
+### `split`
+
+`split` is reserved for multi-anchor routing. The engine reads only `receiving`
+and ignores `split`, so setting it has no effect on where a payment goes. When
+it is set, its weights should sum to 1, so the field keeps its meaning when the
+engine starts to honour it. That support will come as its own change, with a
+changelog entry.
+
+### Versioning and stability
+
+- The factory contract is versioned by `ROUTE_RESOLVER_API_VERSION` (currently
+  `1`), exported from `@corridor/router`. `loadResolver` refuses a module that
+  declares a different `apiVersion`.
+- While the package is pre-1.0, a breaking change to `RouteResolver` or
+  `RouteDecision` is a minor version bump, and `ROUTE_RESOLVER_API_VERSION` is
+  incremented in the same change.
+- After 1.0, a breaking change is a major bump.
+- A deprecated member stays for at least one minor release and is marked in its
+  TSDoc before removal.
+- Adding an optional field is not breaking. Making a field required, or
+  changing what an existing value means, is.
+
 ## The module contract
 
 `loadResolver(spec, { adapterFor })` (exported from `@corridor/router`) turns a
